@@ -86,7 +86,8 @@ public final class TaskTestUtil {
           true,
           true,
           true,
-          true);
+          true,
+          false);
   public static final ExecutorID EXECUTOR_ID = ExecutorID.newBuilder()
       .setValue("PLACEHOLDER")
       .build();

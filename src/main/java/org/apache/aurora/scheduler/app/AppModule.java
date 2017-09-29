@@ -113,6 +113,10 @@ public class AppModule extends AbstractModule {
     public boolean allowContainerVolumes = false;
   }
 
+  @CmdLine(name = "require_predefined_environments", help = "Requires Job environment to be one of: " 
+      + "\"prod\", \"devel\", \"test\", \"staging<number>\"")
+  private static final Arg<Boolean> REQUIRE_PREDEFINED_JOB_ENVIRONMENT= Arg.create(false);
+
   private final ConfigurationManagerSettings configurationManagerSettings;
   private final DriverKind kind;
   private final CliOptions options;

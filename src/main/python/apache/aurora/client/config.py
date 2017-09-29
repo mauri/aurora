@@ -55,21 +55,6 @@ def _validate_announce_configuration(config):
       raise ValueError('Job must be dedicated in order to specify static ports!')
 
 
-STAGING_RE = re.compile(r'^staging\d*$')
-
-
-def __validate_env(name, config_name):
-  if STAGING_RE.match(name):
-    return
-  if name not in ('prod', 'devel', 'test'):
-    raise ValueError('%s should be one of "prod", "devel", "test" or '
-                     'staging<number>!  Got %s' % (config_name, name))
-
-
-def _validate_environment_name(config):
-  env_name = str(config.raw().environment())
-  __validate_env(env_name, 'Environment')
-
 
 UPDATE_CONFIG_MAX_FAILURES_ERROR = '''
 max_total_failures in update_config must be lesser than the job size.
@@ -146,7 +131,7 @@ def _validate_deprecated_config(config):
 def validate_config(config, env=None):
   _validate_update_config(config)
   _validate_announce_configuration(config)
-  _validate_environment_name(config)
+  # _validate_environment_name(config)
   _validate_deprecated_config(config)
 
 

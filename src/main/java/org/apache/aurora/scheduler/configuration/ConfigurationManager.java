@@ -42,6 +42,7 @@ import org.apache.aurora.scheduler.resources.ResourceType;
 import org.apache.aurora.scheduler.storage.entities.IConstraint;
 import org.apache.aurora.scheduler.storage.entities.IContainer;
 import org.apache.aurora.scheduler.storage.entities.IJobConfiguration;
+import org.apache.aurora.scheduler.storage.entities.IJobKey;
 import org.apache.aurora.scheduler.storage.entities.IMesosContainer;
 import org.apache.aurora.scheduler.storage.entities.IResource;
 import org.apache.aurora.scheduler.storage.entities.ITaskConfig;
@@ -96,6 +97,7 @@ public class ConfigurationManager {
     private final boolean allowGpuResource;
     private final boolean enableMesosFetcher;
     private final boolean allowContainerVolumes;
+    private final boolean requirePredefinedJobEnvironment;
 
     public ConfigurationManagerSettings(
         ImmutableSet<Container._Fields> allowedContainerTypes,
@@ -104,7 +106,8 @@ public class ConfigurationManager {
         boolean requireDockerUseExecutor,
         boolean allowGpuResource,
         boolean enableMesosFetcher,
-        boolean allowContainerVolumes) {
+        boolean allowContainerVolumes,
+        boolean requirePredefinedJobEnvironment) {
 
       this.allowedContainerTypes = requireNonNull(allowedContainerTypes);
       this.allowDockerParameters = allowDockerParameters;
@@ -113,6 +116,7 @@ public class ConfigurationManager {
       this.allowGpuResource = allowGpuResource;
       this.enableMesosFetcher = enableMesosFetcher;
       this.allowContainerVolumes = allowContainerVolumes;
+      this.requirePredefinedJobEnvironment = requirePredefinedJobEnvironment;
     }
   }
 
@@ -179,6 +183,12 @@ public class ConfigurationManager {
       throw new TaskDescriptionException("Job key " + job.getKey() + " is invalid.");
     }
 
+    if (settings.requirePredefinedJobEnvironment && !hasPredefinedEnvironment(job.getKey())) {
+      throw new TaskDescriptionException(String.format(
+              "Job environment %s is not one of: %s, or staging<number>.", job.getKey().getEnvironment(),
+              Joiner.on(", ").join(PREDEFINED_ENVIRONMENTS)));
+    }
+
     if (job.isSetOwner() && !UserProvidedStrings.isGoodIdentifier(job.getOwner().getUser())) {
       throw new TaskDescriptionException(
           "Job user contains illegal characters: " + job.getOwner().getUser());
@@ -194,6 +204,14 @@ public class ConfigurationManager {
     }
 
     return IJobConfiguration.build(builder);
+  }
+
+  private final static ImmutableList<String> PREDEFINED_ENVIRONMENTS = ImmutableList.of("prod", "devel", "test");
+  private final static Pattern STAGING_REGEXP = Pattern.compile("^staging\\d*$");
+
+  private boolean hasPredefinedEnvironment(IJobKey iJobKey) {
+    return PREDEFINED_ENVIRONMENTS.contains(iJobKey.getEnvironment())
+            || STAGING_REGEXP.matcher(iJobKey.getEnvironment()).matches();
   }
 
   @VisibleForTesting

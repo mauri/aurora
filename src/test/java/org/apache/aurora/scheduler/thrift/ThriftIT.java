@@ -177,6 +177,7 @@ public class ThriftIT extends EasyMockTest {
         false,
         true,
         true,
+        false, 
         false);
 
     createThrift(configurationManagerSettings);

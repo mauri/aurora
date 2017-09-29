@@ -44,6 +44,7 @@ import org.apache.aurora.scheduler.configuration.ConfigurationManager.Configurat
 import org.apache.aurora.scheduler.configuration.ConfigurationManager.TaskDescriptionException;
 import org.apache.aurora.scheduler.mesos.TestExecutorSettings;
 import org.apache.aurora.scheduler.storage.entities.IDockerParameter;
+import org.apache.aurora.scheduler.storage.entities.IJobConfiguration;
 import org.apache.aurora.scheduler.storage.entities.ITaskConfig;
 import org.junit.Rule;
 import org.junit.Test;
@@ -124,6 +125,7 @@ public class ConfigurationManagerTest {
           true,
           false,
           true,
+          false, 
           false),
       TaskTestUtil.TIER_MANAGER,
       TaskTestUtil.THRIFT_BACKFILL,
@@ -136,7 +138,8 @@ public class ConfigurationManagerTest {
           false,
           true,
           true,
-          true),
+          true,
+          false),
       TaskTestUtil.TIER_MANAGER,
       TaskTestUtil.THRIFT_BACKFILL,
       TestExecutorSettings.THERMOS_EXECUTOR);
@@ -289,6 +292,7 @@ public class ConfigurationManagerTest {
             false,
             false,
             false,
+            false,
             false),
         TaskTestUtil.TIER_MANAGER,
         TaskTestUtil.THRIFT_BACKFILL,
@@ -309,6 +313,7 @@ public class ConfigurationManagerTest {
                     ALL_CONTAINER_TYPES,
                     true,
                 ImmutableList.of(new DockerParameter("foo", "bar")),
+                    false,
                     false,
                     false,
                     false,
@@ -342,6 +347,27 @@ public class ConfigurationManagerTest {
     assertEquals(ImmutableSet.of("health", "http"), populated.getTaskLinks().keySet());
   }
 
+  @Test
+  public void testPredefinedJobEnvironment() throws Exception {
+    JobConfiguration jobConfiguration = UNSANITIZED_JOB_CONFIGURATION.deepCopy();
+    jobConfiguration.getKey().setEnvironment("foo");
+    expectTaskDescriptionException("Job environment foo is not");
+    new ConfigurationManager(
+      new ConfigurationManagerSettings(
+          ALL_CONTAINER_TYPES,
+          true,
+          ImmutableMultimap.of("foo", "bar"),
+          false,
+          true,
+          true,
+          true,
+          true),
+      TaskTestUtil.TIER_MANAGER,
+      TaskTestUtil.THRIFT_BACKFILL,
+      TestExecutorSettings.THERMOS_EXECUTOR).validateAndPopulate(IJobConfiguration.build(jobConfiguration));
+  }
+
+  
   private void expectTaskDescriptionException(String message) {
     expectedException.expect(TaskDescriptionException.class);
     expectedException.expectMessage(message);
