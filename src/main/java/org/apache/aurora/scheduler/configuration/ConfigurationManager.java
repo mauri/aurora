@@ -23,7 +23,6 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
-import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -42,7 +41,6 @@ import org.apache.aurora.scheduler.resources.ResourceType;
 import org.apache.aurora.scheduler.storage.entities.IConstraint;
 import org.apache.aurora.scheduler.storage.entities.IContainer;
 import org.apache.aurora.scheduler.storage.entities.IJobConfiguration;
-import org.apache.aurora.scheduler.storage.entities.IJobKey;
 import org.apache.aurora.scheduler.storage.entities.IMesosContainer;
 import org.apache.aurora.scheduler.storage.entities.IResource;
 import org.apache.aurora.scheduler.storage.entities.ITaskConfig;
@@ -67,6 +65,7 @@ import static org.apache.aurora.scheduler.resources.ResourceType.RAM_MB;
 public class ConfigurationManager {
 
   public static final String DEDICATED_ATTRIBUTE = "dedicated";
+  public static final String DEFAULT_ALLOWED_JOB_ENVIRONMENTS = "^prod|devel|test|staging\\d*$";
 
   private interface Validator<T> {
     void validate(T value) throws TaskDescriptionException;
@@ -97,7 +96,7 @@ public class ConfigurationManager {
     private final boolean allowGpuResource;
     private final boolean enableMesosFetcher;
     private final boolean allowContainerVolumes;
-    private final boolean requirePredefinedJobEnvironment;
+    private final Pattern allowedJobEnvironments;
 
     public ConfigurationManagerSettings(
         ImmutableSet<Container._Fields> allowedContainerTypes,
@@ -107,7 +106,7 @@ public class ConfigurationManager {
         boolean allowGpuResource,
         boolean enableMesosFetcher,
         boolean allowContainerVolumes,
-        boolean requirePredefinedJobEnvironment) {
+        String allowedJobEnvironment) {
 
       this.allowedContainerTypes = requireNonNull(allowedContainerTypes);
       this.allowDockerParameters = allowDockerParameters;
@@ -116,7 +115,7 @@ public class ConfigurationManager {
       this.allowGpuResource = allowGpuResource;
       this.enableMesosFetcher = enableMesosFetcher;
       this.allowContainerVolumes = allowContainerVolumes;
-      this.requirePredefinedJobEnvironment = requirePredefinedJobEnvironment;
+      this.allowedJobEnvironments = Pattern.compile(requireNonNull(allowedJobEnvironment));
     }
   }
 
@@ -183,10 +182,10 @@ public class ConfigurationManager {
       throw new TaskDescriptionException("Job key " + job.getKey() + " is invalid.");
     }
 
-    if (settings.requirePredefinedJobEnvironment && !hasPredefinedEnvironment(job.getKey())) {
+    if (!settings.allowedJobEnvironments.matcher(job.getKey().getEnvironment()).matches()) {
       throw new TaskDescriptionException(String.format(
-              "Job environment %s is not one of: %s, or staging<number>.", job.getKey().getEnvironment(),
-              Joiner.on(", ").join(PREDEFINED_ENVIRONMENTS)));
+              "Job environment %s doesn't match: %s", job.getKey().getEnvironment(),
+              settings.allowedJobEnvironments.toString()));
     }
 
     if (job.isSetOwner() && !UserProvidedStrings.isGoodIdentifier(job.getOwner().getUser())) {
@@ -204,14 +203,6 @@ public class ConfigurationManager {
     }
 
     return IJobConfiguration.build(builder);
-  }
-
-  private final static ImmutableList<String> PREDEFINED_ENVIRONMENTS = ImmutableList.of("prod", "devel", "test");
-  private final static Pattern STAGING_REGEXP = Pattern.compile("^staging\\d*$");
-
-  private boolean hasPredefinedEnvironment(IJobKey iJobKey) {
-    return PREDEFINED_ENVIRONMENTS.contains(iJobKey.getEnvironment())
-            || STAGING_REGEXP.matcher(iJobKey.getEnvironment()).matches();
   }
 
   @VisibleForTesting

@@ -62,7 +62,7 @@ import org.apache.mesos.v1.Protos.ExecutorInfo;
  */
 public final class TaskTestUtil {
 
-  public static final IJobKey JOB = JobKeys.from("role", "dev", "job");
+  public static final IJobKey JOB = JobKeys.from("role", "devel", "job");
   public static final TierInfo REVOCABLE_TIER =
       new TierInfo(true /* preemptible */, true /* revocable */);
   public static final TierInfo DEV_TIER =
@@ -87,7 +87,7 @@ public final class TaskTestUtil {
           true,
           true,
           true,
-          false);
+          ConfigurationManager.DEFAULT_ALLOWED_JOB_ENVIRONMENTS);
   public static final ExecutorID EXECUTOR_ID = ExecutorID.newBuilder()
       .setValue("PLACEHOLDER")
       .build();

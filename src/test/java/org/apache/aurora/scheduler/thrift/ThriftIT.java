@@ -47,6 +47,7 @@ import org.apache.aurora.scheduler.app.SchedulerMain;
 import org.apache.aurora.scheduler.app.ServiceGroupMonitor;
 import org.apache.aurora.scheduler.app.local.FakeNonVolatileStorage;
 import org.apache.aurora.scheduler.base.TaskTestUtil;
+import org.apache.aurora.scheduler.configuration.ConfigurationManager;
 import org.apache.aurora.scheduler.config.CliOptions;
 import org.apache.aurora.scheduler.configuration.ConfigurationManager.ConfigurationManagerSettings;
 import org.apache.aurora.scheduler.configuration.executor.ExecutorSettings;
@@ -177,8 +178,8 @@ public class ThriftIT extends EasyMockTest {
         false,
         true,
         true,
-        false, 
-        false);
+        false,
+        ConfigurationManager.DEFAULT_ALLOWED_JOB_ENVIRONMENTS);
 
     createThrift(configurationManagerSettings);
 

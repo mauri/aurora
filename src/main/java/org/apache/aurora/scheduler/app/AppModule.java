@@ -36,6 +36,7 @@ import org.apache.aurora.scheduler.SchedulerModule;
 import org.apache.aurora.scheduler.SchedulerServicesModule;
 import org.apache.aurora.scheduler.app.SchedulerMain.Options.DriverKind;
 import org.apache.aurora.scheduler.async.AsyncModule;
+import org.apache.aurora.scheduler.configuration.ConfigurationManager;
 import org.apache.aurora.scheduler.config.CliOptions;
 import org.apache.aurora.scheduler.config.validators.PositiveNumber;
 import org.apache.aurora.scheduler.configuration.ConfigurationManager.ConfigurationManagerSettings;
@@ -113,9 +114,10 @@ public class AppModule extends AbstractModule {
     public boolean allowContainerVolumes = false;
   }
 
-  @CmdLine(name = "require_predefined_environments", help = "Requires Job environment to be one of: " 
-      + "\"prod\", \"devel\", \"test\", \"staging<number>\"")
-  private static final Arg<Boolean> REQUIRE_PREDEFINED_JOB_ENVIRONMENT= Arg.create(false);
+  @CmdLine(name = "allowed_job_environments", help = "Regular expression describing the "
+      + "environments that are allowed to be used by jobs.")
+  private static final Arg<String> ALLOWED_JOB_ENVIRONMENTS =
+      Arg.create(ConfigurationManager.DEFAULT_ALLOWED_JOB_ENVIRONMENTS);
 
   private final ConfigurationManagerSettings configurationManagerSettings;
   private final DriverKind kind;

@@ -125,8 +125,8 @@ public class ConfigurationManagerTest {
           true,
           false,
           true,
-          false, 
-          false),
+          false,
+          ConfigurationManager.DEFAULT_ALLOWED_JOB_ENVIRONMENTS),
       TaskTestUtil.TIER_MANAGER,
       TaskTestUtil.THRIFT_BACKFILL,
       TestExecutorSettings.THERMOS_EXECUTOR);
@@ -139,7 +139,7 @@ public class ConfigurationManagerTest {
           true,
           true,
           true,
-          false),
+          ConfigurationManager.DEFAULT_ALLOWED_JOB_ENVIRONMENTS),
       TaskTestUtil.TIER_MANAGER,
       TaskTestUtil.THRIFT_BACKFILL,
       TestExecutorSettings.THERMOS_EXECUTOR);
@@ -293,7 +293,7 @@ public class ConfigurationManagerTest {
             false,
             false,
             false,
-            false),
+            ConfigurationManager.DEFAULT_ALLOWED_JOB_ENVIRONMENTS),
         TaskTestUtil.TIER_MANAGER,
         TaskTestUtil.THRIFT_BACKFILL,
         TestExecutorSettings.THERMOS_EXECUTOR).validateAndPopulate(ITaskConfig.build(builder));
@@ -317,7 +317,7 @@ public class ConfigurationManagerTest {
                     false,
                     false,
                     false,
-                    false),
+                    ".+"),
             TaskTestUtil.TIER_MANAGER,
             TaskTestUtil.THRIFT_BACKFILL,
             TestExecutorSettings.THERMOS_EXECUTOR).validateAndPopulate(ITaskConfig.build(builder));
@@ -348,26 +348,26 @@ public class ConfigurationManagerTest {
   }
 
   @Test
-  public void testPredefinedJobEnvironment() throws Exception {
+  public void testJobEnvironmentValidation() throws Exception {
     JobConfiguration jobConfiguration = UNSANITIZED_JOB_CONFIGURATION.deepCopy();
     jobConfiguration.getKey().setEnvironment("foo");
-    expectTaskDescriptionException("Job environment foo is not");
+    expectTaskDescriptionException("Job environment foo doesn't match: b.r");
     new ConfigurationManager(
       new ConfigurationManagerSettings(
           ALL_CONTAINER_TYPES,
           true,
-          ImmutableMultimap.of("foo", "bar"),
+          ImmutableMultimap.of("k", "v"),
           false,
           true,
           true,
           true,
-          true),
+          "b.r"),
       TaskTestUtil.TIER_MANAGER,
       TaskTestUtil.THRIFT_BACKFILL,
-      TestExecutorSettings.THERMOS_EXECUTOR).validateAndPopulate(IJobConfiguration.build(jobConfiguration));
+      TestExecutorSettings.THERMOS_EXECUTOR)
+            .validateAndPopulate(IJobConfiguration.build(jobConfiguration));
   }
 
-  
   private void expectTaskDescriptionException(String message) {
     expectedException.expect(TaskDescriptionException.class);
     expectedException.expectMessage(message);
