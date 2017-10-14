@@ -14,6 +14,7 @@
 package org.apache.aurora.scheduler.configuration;
 
 import java.util.List;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import javax.annotation.Nullable;
@@ -23,6 +24,7 @@ import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Optional;
 import com.google.common.base.Predicate;
 import com.google.common.base.Strings;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.Iterables;
@@ -65,7 +67,7 @@ import static org.apache.aurora.scheduler.resources.ResourceType.RAM_MB;
 public class ConfigurationManager {
 
   public static final String DEDICATED_ATTRIBUTE = "dedicated";
-  public static final String DEFAULT_ALLOWED_JOB_ENVIRONMENTS = "^prod|devel|test|staging\\d*$";
+  public static final String DEFAULT_ALLOWED_JOB_ENVIRONMENTS = "^(prod|devel|test|staging\\d*)$";
 
   private interface Validator<T> {
     void validate(T value) throws TaskDescriptionException;

@@ -50,7 +50,7 @@ Optional flags:
 	Allow jobs to request Mesos GPU resource.
 -allowed_container_types (default [MESOS])
 	Container types that are allowed to be used by jobs.
--allowed_job_environments (default ^prod|devel|test|staging\d*$)
+-allowed_job_environments (default ^(prod|devel|test|staging\d*)$)
 	Regular expression describing the environments that are allowed to be used by jobs.
 -async_slot_stat_update_interval (default (1, mins))
 	Interval on which to try to update open slot stats.

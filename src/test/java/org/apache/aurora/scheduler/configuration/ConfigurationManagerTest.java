@@ -356,7 +356,7 @@ public class ConfigurationManagerTest {
       new ConfigurationManagerSettings(
           ALL_CONTAINER_TYPES,
           true,
-          ImmutableMultimap.of("k", "v"),
+          ImmutableList.of(new DockerParameter("foo", "bar")),
           false,
           true,
           true,
