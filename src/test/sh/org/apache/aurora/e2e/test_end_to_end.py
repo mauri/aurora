@@ -54,9 +54,11 @@ def test_http_example(cluster, role, env, base_config, updated_config, bad_healt
     #test_kill(jobkey=jobkey)
     #test_quota(
 
+def check_output(opts):
+    return subprocess.check_output(opts, text=True, stderr=subprocess.DEVNULL)
 
 def test_config(config, jobkey):
-    config_list = subprocess.check_output(["aurora", "config", "list", config], text=True)
+    config_list = check_output(["aurora", "config", "list", config])
     if config_list.find(jobkey) >= 0:
         return True
     else:
@@ -94,9 +96,8 @@ def test_observer_ui(cluster, role, job):
         return False
 
     for _ in range(120):
-        task_id = subprocess.check_output(
-            ["aurora_admin", "query", "-l", "%taskId%", "--shards=0", "--states=RUNNING", cluster, role, job],
-            text=True)
+        task_id = check_output(
+            ["aurora_admin", "query", "-l", "%taskId%", "--shards=0", "--states=RUNNING", cluster, role, job])
 
         task_url = f"{observer_url}/task/{task_id}"
         r = requests.get(task_url.strip())
@@ -157,9 +158,9 @@ def test_thermos_profile(jobkey):
 
 
 def test_file_mount(jobkey):
-    aurora_version = subprocess.check_output(
-        ["aurora", "task", "ssh", f"{jobkey}/0", "--command=tail -1 .logs/verify_file_mount/0/stdout"],
-        text=True)
+    aurora_version = check_output(
+        ["aurora", "task", "ssh", f"{jobkey}/0", "--command=tail -1 .logs/verify_file_mount/0/stdout"]
+        )
 
     with open("/vagrant/.auroraversion") as version:
         if aurora_version.strip() != version.read().strip():
@@ -216,9 +217,7 @@ def test_kill(jobkey, *args):
 
 
 def assert_active_update_state(jobkey, expected_state):
-    statuses = json.loads(
-        subprocess.check_output(
-            ["aurora", "update", "list", jobkey, "--status=active", "--write-json"]))
+    statuses = json.loads(check_output(["aurora", "update", "list", jobkey, "--status=active", "--write-json"]))
 
     if len(statuses) == 0:
         return ""
@@ -231,8 +230,9 @@ def assert_active_update_state(jobkey, expected_state):
 
 def assert_update_state_by_id(jobkey, update_id, expected_state):
     update_info = json.loads(
-        subprocess.check_output(
-            ["aurora", "update", "info", jobkey, update_id, "--write-json"]))
+        check_output(
+            ["aurora", "update", "info", jobkey, update_id, "--write-json"]
+            ))
 
     if "status" not in update_info or update_info["status"] != expected_state:
         return False
@@ -243,8 +243,9 @@ def assert_update_state_by_id(jobkey, update_id, expected_state):
 def wait_until_task_counts(jobkey, expected_running, expected_pending):
     for _ in range(120):
         job_statuses = json.loads(
-            subprocess.check_output(
-                ["aurora", "job", "status", jobkey, "--write-json"]))
+            check_output(
+                ["aurora", "job", "status", jobkey, "--write-json"]
+            ))
 
         if "active" not in job_statuses or len(job_statuses["active"]) == 0:
             time.sleep(20)
@@ -296,14 +297,13 @@ def main():
 
    # Docker test
     test_http_example(
-        test_cluster,
-        test_role,
-        test_env,
-        test_config_file,
-        test_config_updated_file,
-        test_bad_healthcheck_config_updated_file,
-        test_job_docker,
-        "")
+        cluster=test_cluster,
+        role=test_role,
+        env=test_env,
+        base_config=test_config_file,
+        updated_config=test_config_updated_file,
+        bad_healthcheck_config=test_bad_healthcheck_config_updated_file,
+        job=test_job_docker)
 
 
 main()
