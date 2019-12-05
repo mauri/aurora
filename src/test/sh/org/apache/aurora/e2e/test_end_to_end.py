@@ -27,19 +27,32 @@ def get_jobkey(cluster, role, env, job):
     return f"{cluster}/{role}/{env}/{job}"
 
 
-def test_http_example_basic_revolcable():
-    _test_http_example_basic(job="http_example_revocable")
+def get_task_id_prefix(cluster, role, env, job):
+    return f"{role}-{env}-{job}-0"
 
 
-def test_http_example_basic_gpu():
-    _test_http_example_basic(job="http_example_gpu")
+def get_discovery_name(cluster, role, env, job):
+    return f"{job}.{env}.{role}"
+
+
+def setup(test_root="/vagrant/src/test/sh/org/apache/aurora/e2e/"):
+    check_output([test_root+"setup.sh"])
+
+
+def xtest_http_example_basic_revolcable():
+    _run_test_http_example_basic(job="http_example_revocable")
+
+
+def xtest_http_example_basic_gpu():
+    _run_test_http_example_basic(job="http_example_gpu")
 
 
 def test_http_example_basic():
-    _test_http_example_basic(job="http_example")
+    setup()
+    _run_test_http_example_basic(job="http_example")
 
 
-def _test_http_example_basic(job):
+def _run_test_http_example_basic(job):
     test_root = "/vagrant/src/test/sh/org/apache/aurora/e2e/"
     example_dir = test_root + "http/"
     _cluster = "devcluster"
@@ -51,38 +64,51 @@ def _test_http_example_basic(job):
 
     jobkey = get_jobkey(_cluster, _role, _env, job)
 
-    a_create(jobkey, _config_file)  # test_create $_jobkey $_base_config
-    a_observer_ui(_cluster, _role, job)  # test_observer_ui $_cluster $_role $_job
-    a_test_kill(jobkey)  # test_kill $_jobkey
+    assert_jobkey_in_config_list(jobkey=jobkey, config_path=_config_file)
+    assert_jobkey_inspect(jobkey=jobkey, config_path=_config_file, )
+    assert_create(jobkey, _config_file)  # test_create $_jobkey $_base_config
+    assert_job_status(jobkey)
+    assert_scheduler_ui(_cluster, _role, _env, job)
+    assert_observer_ui(_cluster, _role, _env, job)  # test_observer_ui $_cluster $_role $_job
+    assert_discovery_info(_cluster, _role, _env, job)   # "${_role}-${_env}-${_job}-0"
+    assert_thermos_profile(jobkey)
+    assert_file_mount(jobkey)
+    assert_killall(jobkey)  # test_kill $_jobkey
 
 
-def test_http_example():
-    test_root = "/vagrant/src/test/sh/org/apache/aurora/e2e/"
-    example_dir = test_root + "http/"
-
-    _cluster = "devcluster"
-    _role = "vagrant"
-    _env = "test"
-    _job = "http_example"
-    _config_file = example_dir + "http_example.aurora"
-    _config_updated_file = example_dir + "http_example_updated.aurora"
-    _bad_healthcheck_config_updated_file = example_dir + "http_example_bad_healthcheck.aurora"
-    test_job_docker = "http_example_docker"
-
-    a_test_http_example(_cluster, _role, _env, _job, _config_file, _config_updated_file, _bad_healthcheck_config_updated_file)
-
-
-def a_test_http_example(cluster, role, env, job, base_config, updated_config, bad_healthcheck_config):
-    jobkey = get_jobkey(cluster=cluster, role=role, env=env, job=job)
-    _task_id_prefix = f"{role}-{env}-{job}-0"
-    _discovery_name = f"{job}.{env}.{role}"
-
-    check_config(config=base_config, jobkey=jobkey)
+# Original Bash:
+    # test_config $_base_config $_jobkey                                                    X
+    # test_inspect $_jobkey $_base_config $_bind_parameters                                 X
+    # test_create $_jobkey $_base_config $_bind_parameters                                  X
+    # test_job_status $_cluster $_role $_env $_job                                          X
+    # test_scheduler_ui $_role $_env $_job                                                  X
+    # test_observer_ui $_cluster $_role $_job                                               X
+    # test_discovery_info $_task_id_prefix $_discovery_name                                 X
+    # test_thermos_profile $_jobkey                                                         X
+    # test_file_mount $_cluster $_role $_env $_job
+    # test_restart $_jobkey
+    # test_update_add_only_kill_only $_jobkey $_base_config $_cluster $_bind_parameters
+    # test_update $_jobkey $_updated_config $_cluster $_bind_parameters
+    # test_update_fail $_jobkey $_base_config  $_cluster $_bad_healthcheck_config $_bind_parameters
+    # # Running test_update second time to change state to success.
+    # test_update $_jobkey $_updated_config $_cluster $_bind_parameters
+    # test_announce $_role $_env $_job
+    # test_run $_jobkey
+    # # TODO(AURORA-1926): 'aurora task scp' only works fully on Mesos containers (can only read for
+    # # Docker). See if it is possible to enable write for Docker sandboxes as well then remove the
+    # # 'if' guard below.
+    # if [[ $_job != *"docker"* ]]; then
+    # test_scp_success $_jobkey
+    # test_scp_permissions $_jobkey
+    # fi
+    # test_kill $_jobkey
+    # test_quota $_cluster $_role
+# Python Translation:
     # test_inspect(config=base_config, jobkey=jobkey)
-    a_create(config=base_config, jobkey=jobkey)
-    a_job_status(jobkey=jobkey)
-    a_scheduler_ui(role=role, env=env, job=job)
-    a_observer_ui(cluster=cluster, role=role, job=job)
+    # a_create(config=base_config, jobkey=jobkey)
+    # a_job_status(jobkey=jobkey)
+    # a_scheduler_ui(role=role, env=env, job=job)
+    # a_observer_ui(cluster=cluster, role=role, job=job)
     # test_discovery_info(task_id_prefix=task_id_prefix, discovery_name=discovery_name)
     #  test_thermos_profile(jobkey=jobkey)
     #  test_file_mount(jobkey=jobkey)
@@ -93,47 +119,36 @@ def a_test_http_example(cluster, role, env, job, base_config, updated_config, ba
     # test_update(jobkey=jobkey,config=base_config,cluster=cluster)
     # test_announce(role=role, env=env, job=job)
     # test_run(jobkey=jobkey)
-    a_test_kill(jobkey=jobkey)
+    # a_test_kill(jobkey=jobkey)
     # test_quota(
 
 
-# test_config() {
-#   local _config=$1 _jobkey=$2
-#
-#   joblist=$(aurora config list $_config | tr -dc '[[:print:]]')
-#   [[ "$joblist" = *"$_jobkey"* ]]
-# }
-def check_config(jobkey, config):
-    c = check_output(["aurora", "config", "list", config])
-    print(f"output: {c}")
+def assert_jobkey_in_config_list(jobkey, config_path):
+    assert jobkey in check_output(["aurora", "config", "list", config_path])
+
+
+def assert_jobkey_inspect(jobkey, config_path):
+    check_output(["aurora", "job", "inspect", jobkey, config_path])
 
 
 def check_output(opts):
     return subprocess.check_output(opts, text=True, stderr=subprocess.DEVNULL)
 
 
-def is_config(config, jobkey):
-    config_list = check_output(["aurora", "config", "list", config])
-    if config_list.find(jobkey) >= 0:
-        return True
-    else:
-        return False
-
-
 def a_inspect(jobkey, config, *bind_parameters):
     subprocess.run(["aurora", "job", "inspect", jobkey, config])
 
 
-def a_create(jobkey, config, *bind_parameters):
+def assert_create(jobkey, config, *bind_parameters):
     subprocess.check_output(["aurora", "job", "create", jobkey, config])
 
 
-def a_job_status(jobkey):
-    subprocess.run(["aurora", "job", "list", jobkey], capture_output=True)
-    subprocess.run(["aurora", "job", "status", jobkey])
+def assert_job_status(jobkey):
+    check_output(["aurora", "job", "list", jobkey])
+    assert check_output(["aurora", "job", "status", jobkey])
 
 
-def a_scheduler_ui(role, env, job):
+def assert_scheduler_ui(_cluster, role, env, job):
     base_url = f"http://{test_agent_ip}:8081/"
 
     endpoints = ("leaderhealth", "scheduler", f"scheduler/{role}", f"scheduler/{role}/{env}/{job}")
@@ -143,7 +158,7 @@ def a_scheduler_ui(role, env, job):
         assert r.status_code == requests.codes.ok
 
 
-def a_observer_ui(cluster, role, job):
+def assert_observer_ui(cluster, role, env, job):
     observer_url = f"http://{test_agent_ip}:1338"
     r = requests.get(observer_url)
     assert r.status_code == requests.codes.ok
@@ -151,23 +166,23 @@ def a_observer_ui(cluster, role, job):
     for _ in range(120):
         task_id = check_output(
             ["aurora_admin", "query", "-l", "%taskId%", "--shards=0", "--states=RUNNING", cluster, role, job])
-
         task_url = f"{observer_url}/task/{task_id}"
         r = requests.get(task_url.strip())
         if r.status_code == requests.codes.ok:
-            assert True
             return
         else:
-            print("waiting...")
+            print(f"waiting for running task {job}...")
             time.sleep(1)
 
-    assert False
+    assert False, f"timeout waiting for task {cluster}/{role}/{env}/{job} in state RUNNING"
 
 
-def _test_discovery_info(task_id_prefix, discovery_name):
+def assert_discovery_info(cluster, role, env, job):
+    task_id_prefix = get_task_id_prefix(cluster, role, env, job)
+    discovery_name = get_discovery_name(cluster, role, env, job)
     r = requests.get(f"http://{test_agent_ip}:5050/state")
     if r.status_code != requests.codes.ok:
-        return False
+        assert False, f"error getting mesos agent state"
 
     framework_info = {}
     for framework in r.json()["frameworks"]:
@@ -175,53 +190,36 @@ def _test_discovery_info(task_id_prefix, discovery_name):
             framework_info = framework
 
     if not framework_info:
-        return False
+        assert False, f"Cannot get Aurora framework info from {r.json()}"
 
-    task_info = {}
+    task_info = None
     if not framework_info["tasks"]:
-        return False
+        assert False, f"Cannot get tasks from {framework_info}"
 
     for task in framework_info["tasks"]:
         if task["id"].startswith(task_id_prefix):
             task_info = task
 
-    if "discovery" not in task_info:
-        return False
-
+    assert task_info is not None, f"Cannot find task with prefix id {task_id_prefix} in {framework_info['tasks']}"
+    assert "discovery" in task_info, f"Cannot get discovery info json from task blob {task_info}"
     discovery_info = task_info["discovery"]
-    if "name" not in discovery_info or discovery_info["name"] != discovery_name:
-        return False
-
-    if "ports" not in discovery_info or "ports" not in discovery_info["ports"]:
-        return False
-
-    if len(discovery_info["ports"]["ports"]) == 0:
-        return False
-
-    return True
+    assert "name" in discovery_info and discovery_info["name"] == discovery_name
+    assert "ports" in discovery_info and "ports" in discovery_info["ports"]
+    assert len(discovery_info["ports"]["ports"]) > 0
 
 
-def _test_thermos_profile(jobkey):
-    contents = subprocess.check_output(
-        ["aurora", "task", "ssh", f"{jobkey}/0", "--command=tail -1 .logs/read_env/0/stdout"],
-        text=True)
-
-    if contents.strip() != "hello":
-        return False
-
-    return True
+def assert_thermos_profile(jobkey):
+    contents = subprocess.check_output(["aurora", "task", "ssh", f"{jobkey}/0",
+                                        "--command=tail -1 .logs/read_env/0/stdout"])
+    assert contents.strip() == b"hello"
 
 
-def a_test_file_mount(jobkey):
+def assert_file_mount(jobkey):
     aurora_version = check_output(
         ["aurora", "task", "ssh", f"{jobkey}/0", "--command=tail -1 .logs/verify_file_mount/0/stdout"]
     )
-
     with open("/vagrant/.auroraversion") as version:
-        if aurora_version.strip() != version.read().strip():
-            return False
-
-    return True
+        assert aurora_version.strip() == version.read().strip()
 
 
 def a_test_restart(jobkey):
@@ -266,7 +264,7 @@ def a_test_quota(cluster, role):
     subprocess.run(["aurora", "quota", "get", f"{cluster}/{role}"])
 
 
-def a_test_kill(jobkey, *args):
+def assert_killall(jobkey, *args):
     # subprocess.run(["aurora", "job", "kill", f"{jobkey}/1"])
     subprocess.run(["aurora", "job", "killall", jobkey])
 
