@@ -72,7 +72,7 @@ def _run_test_http_example_basic(job):
     assert_observer_ui(_cluster, _role, _env, job)  # test_observer_ui $_cluster $_role $_job
     assert_discovery_info(_cluster, _role, _env, job)   # "${_role}-${_env}-${_job}-0"
     assert_thermos_profile(jobkey)
-    assert_file_mount(jobkey)
+    assert_file_mount(_cluster, _role, _env, job)
     assert_killall(jobkey)  # test_kill $_jobkey
 
 
@@ -214,9 +214,13 @@ def assert_thermos_profile(jobkey):
     assert contents.strip() == b"hello"
 
 
-def assert_file_mount(jobkey):
+def assert_file_mount(cluster, role, env, job):
+    if job != 'http_example_unified_docker':
+        return
+
     aurora_version = check_output(
-        ["aurora", "task", "ssh", f"{jobkey}/0", "--command=tail -1 .logs/verify_file_mount/0/stdout"]
+        ["aurora", "task", "ssh", f"{get_jobkey(cluster, role, env, job)}/0",
+         "--command=tail -1 .logs/verify_file_mount/0/stdout"]
     )
     with open("/vagrant/.auroraversion") as version:
         assert aurora_version.strip() == version.read().strip()
