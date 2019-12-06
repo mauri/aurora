@@ -73,6 +73,8 @@ def _run_test_http_example_basic(job):
     assert_discovery_info(_cluster, _role, _env, job)   # "${_role}-${_env}-${_job}-0"
     assert_thermos_profile(jobkey)
     assert_file_mount(_cluster, _role, _env, job)
+    assert_restart(jobkey)
+
     assert_killall(jobkey)  # test_kill $_jobkey
 
 
@@ -85,7 +87,7 @@ def _run_test_http_example_basic(job):
     # test_observer_ui $_cluster $_role $_job                                               X
     # test_discovery_info $_task_id_prefix $_discovery_name                                 X
     # test_thermos_profile $_jobkey                                                         X
-    # test_file_mount $_cluster $_role $_env $_job
+    # test_file_mount $_cluster $_role $_env $_job                                          X
     # test_restart $_jobkey
     # test_update_add_only_kill_only $_jobkey $_base_config $_cluster $_bind_parameters
     # test_update $_jobkey $_updated_config $_cluster $_bind_parameters
@@ -226,7 +228,7 @@ def assert_file_mount(cluster, role, env, job):
         assert aurora_version.strip() == version.read().strip()
 
 
-def a_test_restart(jobkey):
+def assert_restart(jobkey):
     subprocess.run(["aurora", "job", "restart", "--batch-size=2", "--watch-secs=10", jobkey])
 
 
