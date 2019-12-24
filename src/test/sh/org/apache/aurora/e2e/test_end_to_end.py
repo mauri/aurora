@@ -74,6 +74,8 @@ def _run_test_http_example_basic(job):
     assert_thermos_profile(jobkey)
     assert_file_mount(_cluster, _role, _env, job)
     assert_restart(jobkey)
+    assert_update_add_only_kill_only(jobkey, _config_file)
+    assert_update(jobkey, _config_file, _cluster)
 
     assert_killall(jobkey)  # test_kill $_jobkey
 
@@ -88,9 +90,9 @@ def _run_test_http_example_basic(job):
     # test_discovery_info $_task_id_prefix $_discovery_name                                 X
     # test_thermos_profile $_jobkey                                                         X
     # test_file_mount $_cluster $_role $_env $_job                                          X
-    # test_restart $_jobkey
-    # test_update_add_only_kill_only $_jobkey $_base_config $_cluster $_bind_parameters
-    # test_update $_jobkey $_updated_config $_cluster $_bind_parameters
+    # test_restart $_jobkey                                                                 X
+    # test_update_add_only_kill_only $_jobkey $_base_config $_cluster $_bind_parameters     X
+    # test_update $_jobkey $_updated_config $_cluster $_bind_parameters                     X
     # test_update_fail $_jobkey $_base_config  $_cluster $_bad_healthcheck_config $_bind_parameters
     # # Running test_update second time to change state to success.
     # test_update $_jobkey $_updated_config $_cluster $_bind_parameters
@@ -105,24 +107,6 @@ def _run_test_http_example_basic(job):
     # fi
     # test_kill $_jobkey
     # test_quota $_cluster $_role
-# Python Translation:
-    # test_inspect(config=base_config, jobkey=jobkey)
-    # a_create(config=base_config, jobkey=jobkey)
-    # a_job_status(jobkey=jobkey)
-    # a_scheduler_ui(role=role, env=env, job=job)
-    # a_observer_ui(cluster=cluster, role=role, job=job)
-    # test_discovery_info(task_id_prefix=task_id_prefix, discovery_name=discovery_name)
-    #  test_thermos_profile(jobkey=jobkey)
-    #  test_file_mount(jobkey=jobkey)
-    # test_restart(jobkey=jobkey)
-    # a_test_update_add_only_kill_only(jobkey=jobkey, config=base_config, cluster=cluster)
-    # test_update(jobkey=jobkey,config=base_config,cluster=cluster)
-    # test_update_fail(jobkey=jobkey,config=base_config,cluster=cluster)
-    # test_update(jobkey=jobkey,config=base_config,cluster=cluster)
-    # test_announce(role=role, env=env, job=job)
-    # test_run(jobkey=jobkey)
-    # a_test_kill(jobkey=jobkey)
-    # test_quota(
 
 
 def assert_jobkey_in_config_list(jobkey, config_path):
@@ -232,22 +216,64 @@ def assert_restart(jobkey):
     subprocess.run(["aurora", "job", "restart", "--batch-size=2", "--watch-secs=10", jobkey])
 
 
-def a_test_update_add_only_kill_only(jobkey, config, cluster, *bind_parameters):
-    subprocess.run(["aurora", "update", "start", jobkey, config, "--bind=profile.instances=3"])
+def assert_update_add_only_kill_only(jobkey, config_path):
+    subprocess.run(["aurora", "update", "start", jobkey, config_path, "--bind=profile.instances=3"])
 
-    update_id = a_assert_active_update_state(jobkey=jobkey, expected_state="ROLLING_FORWARD")
-
-    if update_id == "":
-        return False
+    update_id = assert_active_update_state(jobkey=jobkey, expected_state="ROLLING_FORWARD")
 
     subprocess.run(["aurora", "update", "wait", jobkey, update_id])
 
-    a_assert_update_state_by_id(jobkey=jobkey, update_id=update_id, expected_state="ROLLED_FORWARD")
-    a_wait_until_task_counts(jobkey=jobkey, expected_running=3, expected_pending=0)
+    assert_update_state_by_id(jobkey=jobkey, update_id=update_id, expected_state="ROLLED_FORWARD")
+    assert_wait_until_task_counts(jobkey=jobkey, expected_running=3, expected_pending=0)
 
 
-def a_test_update(jobkey, updated_config, cluster, bind_parameters):
-    pass
+def assert_update(jobkey, updated_config, cluster, *extra_args):
+    # Tests generic update functionality like pausing and resuming
+    # local _jobkey=$1 _config=$2 _cluster=$3
+    # shift 3
+    # local _extra_args="${@}"
+    #
+    # aurora update start $_jobkey $_config $_extra_args
+    aurora_update_start(jobkey, updated_config, extra_args)
+
+    # assert_active_update_state $_jobkey 'ROLLING_FORWARD'
+    assert_active_update_state(jobkey, 'ROLLING_FORWARD')
+
+    # local _update_id=$(aurora update list $_jobkey --status ROLLING_FORWARD \
+    #     | tail -n +2 | awk '{print $2}')
+    _update_id = assert_active_update_state(jobkey, 'ROLLING_FORWARD')
+
+    # aurora_admin scheduler_snapshot devcluster
+    subprocess.run(["aurora_admin", "scheduled_snapshot", cluster])
+
+    # sudo systemctl restart aurora-scheduler
+    subprocess.run(["sudo", "systemctl", "restart", "aurora-scheduler"])
+
+    # assert_active_update_state $_jobkey 'ROLLING_FORWARD'
+    _update_id = assert_active_update_state(jobkey, 'ROLLING_FORWARD')
+
+    # aurora update pause $_jobkey --message='hello'
+    subprocess.run(["aurora", "update", jobkey, "--mesage='hello'"])
+
+    # assert_active_update_state $_jobkey 'ROLL_FORWARD_PAUSED'
+    _update_id = assert_active_update_state(jobkey, 'ROLL_FORWARD_PAUSED')
+
+    # aurora update resume $_jobkey
+    subprocess.run(["aurora", "update", "resume", jobkey])
+
+    # assert_active_update_state $_jobkey 'ROLLING_FORWARD'
+    update_id = assert_active_update_state(jobkey, 'ROLLING_FORWARD')
+
+    # aurora update wait $_jobkey $_update_id
+    subprocess.run(["aurora", "update", "wait", jobkey, update_id])
+
+    # # Check that the update ended in ROLLED_FORWARD state.  Assumes the status is the last column.
+    # assert_update_state_by_id $_jobkey $_update_id 'ROLLED_FORWARD'
+    assert_update_state_by_id(jobkey, update_id, 'ROLLED_FORWARD')
+
+
+def aurora_update_start(jobkey, config_path, *extra_args):
+    subprocess.run(["aurora", "update", "start", jobkey, config_path] + extra_args)
 
 
 def a_test_update_fail(jobkey, base_config, cluster, bad_healthcheck_config, bind_parameters):
@@ -271,35 +297,32 @@ def a_test_quota(cluster, role):
 
 
 def assert_killall(jobkey, *args):
-    # subprocess.run(["aurora", "job", "kill", f"{jobkey}/1"])
     subprocess.run(["aurora", "job", "killall", jobkey])
 
 
-def a_assert_active_update_state(jobkey, expected_state):
+def assert_kill(jobkey, instance):
+    subprocess.run(["aurora", "job", "kill", f"{jobkey}/{instance}"])
+
+
+# asserts theres a pending return
+def assert_active_update_state(jobkey, expected_state):
     statuses = json.loads(check_output(["aurora", "update", "list", jobkey, "--status=active", "--write-json"]))
-
-    if len(statuses) == 0:
-        return ""
-
-    if statuses[0]["status"] != expected_state:
-        return ""
-
+    assert len(statuses) != 0, f"update missing for {jobkey}"
+    assert statuses[0]["status"] == expected_state, f"update missing for {jobkey} in {expected_state} state"
     return statuses[0]["id"]
 
 
-def a_assert_update_state_by_id(jobkey, update_id, expected_state):
+def assert_update_state_by_id(jobkey, update_id, expected_state):
     update_info = json.loads(
         check_output(
             ["aurora", "update", "info", jobkey, update_id, "--write-json"]
         ))
 
-    if "status" not in update_info or update_info["status"] != expected_state:
-        return False
-
-    return True
+    assert "status" in update_info
+    assert update_info["status"] == expected_state, f"update missing for {jobkey} in {expected_state} state"
 
 
-def a_wait_until_task_counts(jobkey, expected_running, expected_pending):
+def assert_wait_until_task_counts(jobkey, expected_running, expected_pending):
     for _ in range(120):
         job_statuses = json.loads(
             check_output(
@@ -323,7 +346,7 @@ def a_wait_until_task_counts(jobkey, expected_running, expected_pending):
         if running == expected_running and pending == expected_pending:
             return True
 
-    return False
+    assert False, f"tasks {jobkey} never reached {expected_running} running and {expected_pending} pending"
 
 
 def main():
